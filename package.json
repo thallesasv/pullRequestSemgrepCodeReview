@@ -1,0 +1,42 @@
+{
+  "name": "pr-review-ai",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "DEBUG=true npx tsx -r dotenv/config src/main.ts",
+    "build": "npx esbuild src/main.ts --bundle --platform=node --outfile=dist/index.js --minify && npx esbuild src/cli.ts --bundle --platform=node --outfile=dist/cli.js --minify",
+    "start": "node dist/index.js",
+    "review": "node dist/cli.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.19.0",
+    "ts-jest": "^29.4.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "@ai-sdk/anthropic": "^0.0.56",
+    "@ai-sdk/google": "^0.0.55",
+    "@ai-sdk/openai": "^0.0.72",
+    "@langchain/core": "^0.3.79",
+    "@octokit/action": "^7.0.2",
+    "@octokit/plugin-retry": "^7.2.1",
+    "@octokit/plugin-throttling": "^9.6.1",
+    "@octokit/types": "^13.10.0",
+    "ai": "^3.4.33",
+    "axios": "^1.13.2",
+    "dotenv": "^16.6.1",
+    "jest": "^29.7.0",
+    "zod": "^3.25.76"
+  }
+}
