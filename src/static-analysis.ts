@@ -1,4 +1,6 @@
-import { execFileSync } from "child_process";
+﻿import { execFileSync } from "child_process";
+import { warning } from "@actions/core";
+import { warning } from "@actions/core";
 import { FileDiff } from "./diff";
 import { AIComment, PullRequestSummary } from "./prompts";
 
@@ -232,7 +234,7 @@ export function performStaticAnalysis(files: FileDiff[]): StaticAnalysisResult {
       securityConcerns:
         securityFindings.length > 0
           ? securityFindings.map((comment) => comment.content).join("; ")
-          : "Nenhuma vulnerabilidade óbvia detectada",
+          : "Nenhuma vulnerabilidade Ã³bvia detectada",
     },
   };
 }
@@ -281,7 +283,7 @@ export function generateSummaryFromDiff(
     if (types.includes("BUG")) {
       title = `Corrigir problema em ${addedFiles.length + modifiedFiles.length} arquivo(s)`;
     } else if (types.includes("TESTS")) {
-      title = `Adicionar testes para ${modifiedFiles.length} módulo(s)`;
+      title = `Adicionar testes para ${modifiedFiles.length} mÃ³dulo(s)`;
     } else {
       title = `Atualizar ${addedFiles.length + modifiedFiles.length} arquivo(s)`;
     }
@@ -316,7 +318,7 @@ export function generateSummaryFromDiff(
         renamed: "Renomeado",
         copied: "Copiado",
         changed: "Alterado",
-        unchanged: "Sem alterações",
+        unchanged: "Sem alteraÃ§Ãµes",
       };
 
       const hunksCount = f.hunks.length;
@@ -324,7 +326,7 @@ export function generateSummaryFromDiff(
 
       let summary = `${statusMap[f.status] || f.status}.`;
       if (hunksCount > 0) {
-        summary += ` Alterações em ${hunksCount} trecho(s) com aproximadamente ${totalLines} linha(s).`;
+        summary += ` AlteraÃ§Ãµes em ${hunksCount} trecho(s) com aproximadamente ${totalLines} linha(s).`;
       }
       if (f.status === "renamed" && f.previous_filename) {
         summary = `Renomeado de \`${f.previous_filename}\`. ${summary}`;
@@ -344,3 +346,5 @@ export function generateSummaryFromDiff(
     type: types,
   };
 }
+
+
