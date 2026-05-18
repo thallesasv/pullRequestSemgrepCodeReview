@@ -1,4 +1,4 @@
-﻿import { execFileSync } from "child_process";
+import { execFileSync } from "child_process";
 import { warning } from "@actions/core";
 import { FileDiff } from "./diff";
 import { AIComment, PullRequestSummary } from "./prompts";
@@ -119,19 +119,41 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
       }
     );
 
-    const parsed = JSON.parse(output) as SemgrepOutput;
-    return parsed.results ?? [];
+    try {
+      const parsed = JSON.parse(output) as SemgrepOutput;
+      return parsed.results ?? [];
+    } catch (parseError) {
+      throw new Error(
+        `Semgrep analysis failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+      );
+    }
   } catch (error) {
     if (error && typeof error === "object") {
-      const execError = error as Error & { stdout?: string; stderr?: string };
-      const details = [execError.message, execError.stderr, execError.stdout]
+      const execError = error as Error & { code?: number; stdout?: string; stderr?: string };
+      const output = execError.stdout?.trim() || execError.stderr?.trim() || "";
+
+      if (execError.code === 1 && output) {
+        try {
+          const parsed = JSON.parse(output) as SemgrepOutput;
+          return parsed.results ?? [];
+        } catch (parseError) {
+          throw new Error(
+            `Semgrep analysis failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+          );
+        }
+      }
+
+      const details = [
+        `exit code: ${execError.code ?? "unknown"}`,
+        execError.message,
+        execError.stderr,
+        execError.stdout,
+      ]
         .filter(Boolean)
         .join("\n")
         .trim();
 
-      throw new Error(
-        `Semgrep analysis failed: ${details || String(error)}`
-      );
+      throw new Error(`Semgrep analysis failed: ${details || String(error)}`);
     }
 
     throw new Error(`Semgrep analysis failed: ${String(error)}`);
@@ -244,7 +266,7 @@ export function performStaticAnalysis(files: FileDiff[]): StaticAnalysisResult {
       securityConcerns:
         securityFindings.length > 0
           ? securityFindings.map((comment) => comment.content).join("; ")
-          : "Nenhuma vulnerabilidade Ã³bvia detectada",
+          : "Nenhuma vulnerabilidade óbvia detectada",
     },
   };
 }
@@ -293,7 +315,7 @@ export function generateSummaryFromDiff(
     if (types.includes("BUG")) {
       title = `Corrigir problema em ${addedFiles.length + modifiedFiles.length} arquivo(s)`;
     } else if (types.includes("TESTS")) {
-      title = `Adicionar testes para ${modifiedFiles.length} mÃ³dulo(s)`;
+      title = `Adicionar testes para ${modifiedFiles.length} módulo(s)`;
     } else {
       title = `Atualizar ${addedFiles.length + modifiedFiles.length} arquivo(s)`;
     }
@@ -328,7 +350,7 @@ export function generateSummaryFromDiff(
         renamed: "Renomeado",
         copied: "Copiado",
         changed: "Alterado",
-        unchanged: "Sem alteraÃ§Ãµes",
+        unchanged: "Sem alterações",
       };
 
       const hunksCount = f.hunks.length;
@@ -336,7 +358,7 @@ export function generateSummaryFromDiff(
 
       let summary = `${statusMap[f.status] || f.status}.`;
       if (hunksCount > 0) {
-        summary += ` AlteraÃ§Ãµes em ${hunksCount} trecho(s) com aproximadamente ${totalLines} linha(s).`;
+        summary += ` Alterações em ${hunksCount} trecho(s) com aproximadamente ${totalLines} linha(s).`;
       }
       if (f.status === "renamed" && f.previous_filename) {
         summary = `Renomeado de \`${f.previous_filename}\`. ${summary}`;
@@ -356,5 +378,9 @@ export function generateSummaryFromDiff(
     type: types,
   };
 }
+
+
+
+
 
 
