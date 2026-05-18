@@ -350,7 +350,7 @@ export function generateSummaryFromDiff(
         renamed: "Renomeado",
         copied: "Copiado",
         changed: "Alterado",
-        unchanged: "Sem alterações",
+        unchanged: "Sem alteracoes",
       };
 
       const hunksCount = f.hunks.length;
@@ -358,7 +358,7 @@ export function generateSummaryFromDiff(
 
       let summary = `${statusMap[f.status] || f.status}.`;
       if (hunksCount > 0) {
-        summary += ` Alterações em ${hunksCount} trecho(s) com aproximadamente ${totalLines} linha(s).`;
+        summary += ` Alteracoes em ${hunksCount} trecho(s) com aproximadamente ${totalLines} linha(s).`;
       }
       if (f.status === "renamed" && f.previous_filename) {
         summary = `Renomeado de \`${f.previous_filename}\`. ${summary}`;

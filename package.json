@@ -1,5 +1,5 @@
 {
-  "name": "pr-review-ai",
+  "name": "semgrep-static-pr-review",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",

@@ -58,7 +58,7 @@ describe('Messages', () => {
   test('buildLoadingMessage formats correctly', () => {
     const message = buildLoadingMessage('base-sha', mockCommits, mockFileDiffs);
 
-    expect(message).toContain('Analisando alterações neste PR');
+    expect(message).toContain('Analisando alteracoes neste PR');
     expect(message).toContain('base-sh');
     expect(message).toContain('abc123');
     expect(message).toContain('def456');
@@ -90,6 +90,7 @@ describe('Messages', () => {
     expect(message).toContain('src/test2.ts');
     expect(message).toContain('Added new file');
     expect(message).toContain(OVERVIEW_MESSAGE_SIGNATURE);
+    expect(message).toContain('Semgrep Static PR Review');
     expect(message).toContain(PAYLOAD_TAG_OPEN);
     expect(message).toContain(PAYLOAD_TAG_CLOSE);
     expect(message).toContain('"commits":["commit1","commit2"]');
