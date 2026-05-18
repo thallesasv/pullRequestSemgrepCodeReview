@@ -79,9 +79,19 @@ function isFindingInChangedLines(
   );
 }
 
+function isScannable(filename: string): boolean {
+  // Only scan source code files, exclude config/docs
+  const scannableExtensions = [
+    '.ts', '.tsx', '.js', '.jsx', '.java', '.py', '.go', '.rb', '.php',
+    '.cs', '.cpp', '.c', '.swift', '.kt', '.scala', '.rs', '.sh', '.bash'
+  ];
+  const filename_lower = filename.toLowerCase();
+  return scannableExtensions.some(ext => filename_lower.endsWith(ext));
+}
+
 function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
   const scanTargets = files
-    .filter((file) => file.status !== "removed" && file.hunks.length > 0)
+    .filter((file) => file.status !== "removed" && file.hunks.length > 0 && isScannable(file.filename))
     .map((file) => file.filename);
 
   if (scanTargets.length === 0) {
