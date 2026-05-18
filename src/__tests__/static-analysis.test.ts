@@ -4,11 +4,19 @@ jest.mock('child_process', () => ({
   execFileSync: jest.fn(),
 }));
 
+jest.mock('@actions/core', () => ({
+  info: jest.fn(),
+  warning: jest.fn(),
+}));
+
 import { execFileSync } from 'child_process';
+import { info, warning } from '@actions/core';
 import { performStaticAnalysis } from '../static-analysis';
 import { FileDiff } from '../diff';
 
 const execFileSyncMock = execFileSync as jest.Mock;
+const infoMock = info as jest.Mock;
+const warningMock = warning as jest.Mock;
 
 describe('Semgrep static analysis', () => {
   beforeEach(() => {
@@ -91,5 +99,63 @@ describe('Semgrep static analysis', () => {
     });
     expect(result.metrics.hasRelevantTests).toBe(false);
     expect(result.metrics.securityConcerns).toContain('Possible command injection sink detected');
+    expect(infoMock).toHaveBeenCalledWith('Running Semgrep with 1 target(s) using config p/default');
+    expect(infoMock).toHaveBeenCalledWith('Semgrep targets: src/app.ts');
+    expect(infoMock).toHaveBeenCalledWith('Semgrep scan completed successfully with 3 finding(s)');
+  });
+
+  test('parses Semgrep JSON even when the process exits non-zero', () => {
+    const semgrepOutput = {
+      results: [
+        {
+          check_id: 'typescript.security.detect-child-process',
+          path: 'src/app.ts',
+          start: { line: 3 },
+          end: { line: 3 },
+          extra: {
+            message: 'Possible command injection sink detected',
+            severity: 'ERROR',
+            lines: 'child_process.exec(userInput);',
+          },
+        },
+      ],
+    };
+
+    const error = new Error('Command failed: semgrep scan') as Error & {
+      code?: number;
+      stdout?: string;
+      stderr?: string;
+    };
+    error.code = 2;
+    error.stdout = JSON.stringify(semgrepOutput);
+    error.stderr = 'warning: partial scan output';
+
+    execFileSyncMock.mockImplementation(() => {
+      throw error;
+    });
+
+    const files: FileDiff[] = [
+      {
+        filename: 'src/app.ts',
+        status: 'modified',
+        hunks: [
+          { startLine: 1, endLine: 10, diff: '@@ -1,5 +1,10 @@\n+child_process.exec(userInput);' },
+        ],
+      },
+    ];
+
+    const result = performStaticAnalysis(files);
+
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]).toMatchObject({
+      file: 'src/app.ts',
+      start_line: 3,
+      end_line: 3,
+      label: 'security',
+      critical: true,
+    });
+    expect(warningMock).toHaveBeenCalledWith(
+      'Semgrep exited with code 2 but returned parseable JSON; continuing with 1 finding(s)'
+    );
   });
 });

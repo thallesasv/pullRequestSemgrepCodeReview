@@ -18,20 +18,20 @@ function formatCommentLabel(label: string): string {
   const normalizedLabel = label.trim().toLowerCase();
 
   const labelTranslations: Record<string, string> = {
-    security: "segurança",
-    "possible bug": "possível bug",
-    "possible issue": "possível problema",
+    security: "seguranca",
+    "possible bug": "possivel bug",
+    "possible issue": "possivel problema",
     performance: "desempenho",
     enhancement: "melhoria",
-    "best practice": "melhor prática",
+    "best practice": "melhor pratica",
     maintainability: "manutenibilidade",
     readability: "legibilidade",
-    typo: "erro de digitação",
+    typo: "erro de digitacao",
     bug: "bug",
     style: "estilo",
-    documentation: "documentação",
+    documentation: "documentacao",
     tests: "testes",
-    refactor: "refatoração",
+    refactor: "refatoracao",
   };
 
   return labelTranslations[normalizedLabel] ?? label;
@@ -68,7 +68,7 @@ export function buildLoadingMessage(
   message += `Analisando alteracoes da base (\`${baseCommit.slice(
     0,
     7
-  )}\`) até o commit mais recente (\`${commits[commits.length - 1].sha.slice(
+  )}\`) ate o commit mais recente (\`${commits[commits.length - 1].sha.slice(
     0,
     7
   )}\`):\n`;
@@ -162,7 +162,7 @@ export function buildReviewSummary(
   if (actionableComments.length === 0) {
     body += `✅ **Me avise caso precise de ajuda!**\n\n`;
   } else {
-    body += `🚨 **Pull request precisa de atenção.**\n\n`;
+    body += `🚨 **Pull request precisa de atencao.**\n\n`;
   }
 
   body += "### Resumo do Code Review\n\n";
@@ -194,7 +194,7 @@ export function buildReviewSummary(
   body += "\n</details>\n\n";
 
   // Actionable comments section
-  body += `<details>\n<summary>Pontos de Ação (${actionableComments.length})</summary>\n\n`;
+  body += `<details>\n<summary>Pontos de Acao (${actionableComments.length})</summary>\n\n`;
   for (const comment of actionableComments) {
     body += `- <details>\n`;
     body += `  <summary>${comment.file} [${comment.start_line}-${comment.end_line}]</summary>\n\n`;
@@ -204,7 +204,7 @@ export function buildReviewSummary(
   body += "\n</details>\n\n";
 
   // Skipped comments section
-  body += `<details>\n<summary>Comentários Ignorados (${skippedComments.length})</summary>\n\n`;
+  body += `<details>\n<summary>Comentarios Ignorados (${skippedComments.length})</summary>\n\n`;
   for (const comment of skippedComments) {
     body += `- <details>\n`;
     body += `  <summary>${comment.file} [${comment.start_line}-${comment.end_line}]</summary>\n\n`;

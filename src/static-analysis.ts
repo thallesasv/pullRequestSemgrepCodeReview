@@ -1,5 +1,5 @@
 import { execFileSync } from "child_process";
-import { warning } from "@actions/core";
+import { info, warning } from "@actions/core";
 import { FileDiff } from "./diff";
 import { AIComment, PullRequestSummary } from "./prompts";
 
@@ -90,14 +90,33 @@ function isScannable(filename: string): boolean {
   return scannableExtensions.some(ext => filename_lower.endsWith(ext));
 }
 
+function parseSemgrepOutput(output: string): SemgrepFinding[] | null {
+  if (!output.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(output) as SemgrepOutput;
+    return parsed.results ?? [];
+  } catch {
+    return null;
+  }
+}
+
 function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
   const scanTargets = files
     .filter((file) => file.status !== "removed" && file.hunks.length > 0 && isScannable(file.filename))
     .map((file) => file.filename);
 
   if (scanTargets.length === 0) {
+    info("Semgrep skipped: no scannable file targets found");
     return [];
   }
+
+  info(
+    `Running Semgrep with ${scanTargets.length} target(s) using config ${SEMGREP_CONFIG}`
+  );
+  info(`Semgrep targets: ${scanTargets.join(", ")}`);
 
   try {
     const output = execFileSync(
@@ -120,8 +139,13 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
     );
 
     try {
-      const parsed = JSON.parse(output) as SemgrepOutput;
-      return parsed.results ?? [];
+      const parsed = parseSemgrepOutput(output);
+      if (parsed) {
+        info(`Semgrep scan completed successfully with ${parsed.length} finding(s)`);
+        return parsed;
+      }
+
+      throw new Error("Semgrep returned an unparseable JSON payload");
     } catch (parseError) {
       throw new Error(
         `Semgrep analysis failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`
@@ -135,6 +159,9 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
       if (execError.code === 1 && output) {
         try {
           const parsed = JSON.parse(output) as SemgrepOutput;
+          info(
+            `Semgrep exited with code 1 but returned parseable JSON containing ${parsed.results?.length ?? 0} finding(s)`
+          );
           return parsed.results ?? [];
         } catch (parseError) {
           throw new Error(
@@ -153,7 +180,24 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
         .join("\n")
         .trim();
 
-      throw new Error(`Semgrep analysis failed: ${details || String(error)}`);
+      const parsed = parseSemgrepOutput(execError.stdout?.trim() || execError.stderr?.trim() || "");
+      if (parsed) {
+        warning(
+          `Semgrep exited with code ${execError.code ?? "unknown"} but returned parseable JSON; continuing with ${parsed.length} finding(s)`
+        );
+        return parsed;
+      }
+
+      warning(
+        `Semgrep analysis failed, continuing without findings: ${details || String(error)}`
+      );
+      warning(
+        `Semgrep stdout: ${execError.stdout?.trim() || "<empty>"}`
+      );
+      warning(
+        `Semgrep stderr: ${execError.stderr?.trim() || "<empty>"}`
+      );
+      return [];
     }
 
     throw new Error(`Semgrep analysis failed: ${String(error)}`);
@@ -266,7 +310,7 @@ export function performStaticAnalysis(files: FileDiff[]): StaticAnalysisResult {
       securityConcerns:
         securityFindings.length > 0
           ? securityFindings.map((comment) => comment.content).join("; ")
-          : "Nenhuma vulnerabilidade óbvia detectada",
+          : "Nenhuma vulnerabilidade obvia detectada",
     },
   };
 }
@@ -315,7 +359,7 @@ export function generateSummaryFromDiff(
     if (types.includes("BUG")) {
       title = `Corrigir problema em ${addedFiles.length + modifiedFiles.length} arquivo(s)`;
     } else if (types.includes("TESTS")) {
-      title = `Adicionar testes para ${modifiedFiles.length} módulo(s)`;
+      title = `Adicionar testes para ${modifiedFiles.length} modulo(s)`;
     } else {
       title = `Atualizar ${addedFiles.length + modifiedFiles.length} arquivo(s)`;
     }

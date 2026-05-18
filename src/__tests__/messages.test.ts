@@ -131,14 +131,14 @@ describe('Messages', () => {
       mockSkippedComments
     );
 
-    expect(summary).toContain('Pull request precisa de atenção');
+    expect(summary).toContain('Pull request precisa de atencao');
     expect(summary).toContain('Resumo do Code Review');
     expect(summary).toContain('Commits Considerados (2)');
     expect(summary).toContain('Arquivos analisados (2)');
-    expect(summary).toContain('Pontos de Ação (1)');
-    expect(summary).toContain('Comentários Ignorados (1)');
+    expect(summary).toContain('Pontos de Acao (1)');
+    expect(summary).toContain('Comentarios Ignorados (1)');
     expect(summary).toContain('src/test1.ts [2-3]');
-    expect(summary).toContain('possível bug: "Potential issue"');
+    expect(summary).toContain('possivel bug: "Potential issue"');
     expect(summary).toContain('src/test2.ts [1-1]');
     expect(summary).toContain('estilo: "Style suggestion"');
     expect(summary).toContain('https://github.com/test-owner/test-repo/commit/');
@@ -154,8 +154,8 @@ describe('Messages', () => {
     );
     
     expect(summary).toContain('Me avise caso precise de ajuda!');
-    expect(summary).toContain('Pontos de Ação (0)');
-    expect(summary).toContain('Comentários Ignorados (0)');
+    expect(summary).toContain('Pontos de Acao (0)');
+    expect(summary).toContain('Comentarios Ignorados (0)');
     expect(summary).toContain('https://github.com/test-owner/test-repo/commit/');
   });
 
