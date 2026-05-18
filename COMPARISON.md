@@ -101,7 +101,6 @@ Grátis! 🎉
 **Configuração necessária:**
 ```yaml
 env:
-  ANALYSIS_MODE: "static"
   # Pronto! Nenhuma API key necessária
 ```
 

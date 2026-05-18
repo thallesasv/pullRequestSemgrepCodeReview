@@ -45,7 +45,7 @@ A versão com análise estática detecta problemas de código através de Semgre
 
 ### Opção 1: GitHub Actions (Recomendado)
 
-Crie ou atualize `.github/workflows/pr-review-static.yml`:
+Crie ou atualize `.github/workflows/pr-review-semgrep.yml`:
 
 ```yaml
 name: PR Review Static - Static Analysis

@@ -42,9 +42,6 @@ Thank you for your interest in contributing to PR Review AI!
    ```env
    # Required: Github personal access token
    GITHUB_TOKEN=...
-
-   # Optional: Force the static-only review mode
-   ANALYSIS_MODE=static
    ```
 
    And uncomment one of the events that you want to test: `pull_request` or `pull_request_review_comment`

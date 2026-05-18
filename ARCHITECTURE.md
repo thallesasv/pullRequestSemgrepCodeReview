@@ -7,25 +7,19 @@ GitHub Pull Request
         ↓
 GitHub Actions
         ↓
-pr-review-ai Action
+pr-review-semgrep Action
         ↓
     main.ts
         ↓
-   Verifica ANALYSIS_MODE
-    ↙                  ↘
-LLM="llm"         ANALYSIS_MODE="static"
-    ↓                      ↓
-runPrompt() ←┬─→ performStaticAnalysis()
-     │       │       │
-ai.ts │    prompts.ts  static-analysis.ts
-     │       │       │
-  LLM API    Hybrid  Pattern Detection
-           Support   Rules
-    ↓          ↓        ↓
-Results   Combined    Pure
-         Results      Static
-     ↓         ↓          ↓
-   Pull Request Comments Posted
+   Static analysis flow
+    ↓
+  prompts.ts
+    ↓
+performStaticAnalysis()
+    ↓
+ static-analysis.ts
+    ↓
+ Pull Request Comments Posted
 ```
 
 ---
@@ -45,21 +39,15 @@ GitHub Event?
 ```
 runSummaryPrompt()
   ↓
-ANALYSIS_MODE check
-  ├→ "static" → generateSummaryFromDiff()
-  └→ "llm" → runPrompt() [LLM]
+generateSummaryFromDiff()
 
 runReviewPrompt()
   ↓
-ANALYSIS_MODE check
-  ├→ "static" → performStaticAnalysis()
-  └→ "llm" → runPrompt() [LLM]
+performStaticAnalysis()
 
 runReviewCommentPrompt()
   ↓
-ANALYSIS_MODE check
-  ├→ "static" → return empty (não suportado)
-  └→ "llm" → runPrompt() [LLM]
+return empty (não suportado)
 ```
 
 ### `src/static-analysis.ts` (Novo)
@@ -186,25 +174,17 @@ PR → parse diff → pattern matching → metrics → JSON → post comments
 
 ## Configuração: Como Funciona
 
-### Variável `ANALYSIS_MODE`
+### Modo estático
 
 ```typescript
-const ANALYSIS_MODE = process.env.ANALYSIS_MODE || "llm";
-
-if (ANALYSIS_MODE === "static") {
-  // Use análise estática
-} else if (ANALYSIS_MODE === "llm") {
-  // Use LLM (padrão)
-} else {
-  throw new Error("Invalid ANALYSIS_MODE");
-}
+// A versão atual usa análise estática por padrão.
+// O fluxo de LLM ficou apenas como contexto histórico.
 ```
 
 ### GitHub Actions
 
 ```yaml
 env:
-  ANALYSIS_MODE: "static"  # Controla qual modo usar
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -268,7 +248,7 @@ pullRequestCodeReview/
 │  └─ ...
 ├─ .github/workflows/
 │  ├─ pr-review-ai.yml           # Original (LLM)
-│  └─ pr-review-static.yml       # ✨ Novo (Static)
+│  └─ pr-review-semgrep.yml      # ✨ Novo (Static)
 ├─ README.md                     # Original
 ├─ README_STATIC.md              # ✨ Novo
 ├─ STATIC_ANALYSIS.md            # ✨ Novo
@@ -280,12 +260,12 @@ pullRequestCodeReview/
 
 ## Decisões de Design
 
-### ✅ Por que adicionar `ANALYSIS_MODE` ao invés de criar novo repositório?
+### ✅ Por que adotar análise estática ao invés de criar novo repositório?
 
-1. **Compatibilidade** - Quem usa LLM não é afetado
-2. **Flexibilidade** - Possibilita modo híbrido futuro
-3. **Manutenção** - Um único código base
-4. **Reuso** - Compartilha parsers de diff, GitHub API, etc
+1. **Simplicidade** - Não exige configuração extra de modo
+2. **Manutenção** - Um único código base
+3. **Reuso** - Compartilha parsers de diff, GitHub API, etc
+4. **Clareza** - O repositório deixa explícito que o fluxo padrão é estático
 
 ### ✅ Por que não chamar de "Lite" ao invés de "Static"?
 

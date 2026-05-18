@@ -28,7 +28,7 @@
 - ✅ `IMPLEMENTATION_SUMMARY.md` - Este sumário
 
 ### 4. **Workflow GitHub Actions** 🚀
-- ✅ `.github/workflows/pr-review-static.yml`
+- ✅ `.github/workflows/pr-review-semgrep.yml`
 - Pronto para usar, sem API key necessária
 
 ---
@@ -45,7 +45,7 @@
 npm run review
 ```
 
-**Workflow (`.github/workflows/pr-review.yml`):**
+**Workflow (`.github/workflows/pr-review-semgrep.yml`):**
 ```yaml
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,7 +65,7 @@ git branch -M main
 git push -u origin main
 
 # 3. Usar workflow static
-cp .github/workflows/pr-review-static.yml .github/workflows/pr-review.yml
+cp .github/workflows/pr-review-semgrep.yml .github/workflows/pr-review.yml
 
 # 4. Pronto! Sem API key, sem custo!
 ```
@@ -92,7 +92,7 @@ cp .github/workflows/pr-review-static.yml .github/workflows/pr-review.yml
 ```
 5 NOVOS ARQUIVOS:
 ├─ src/static-analysis.ts              (500 linhas)
-├─ .github/workflows/pr-review-static.yml (15 linhas)
+├─ .github/workflows/pr-review-semgrep.yml (15 linhas)
 ├─ STATIC_ANALYSIS.md                  (400 linhas)
 ├─ COMPARISON.md                       (350 linhas)
 ├─ README_STATIC.md                    (250 linhas)

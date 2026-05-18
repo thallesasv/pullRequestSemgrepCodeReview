@@ -78,10 +78,10 @@ Comentários de revisão ajudam a esclarecer detalhes de implementação:
 
 ### Passo 1: Crie o workflow do GitHub
 
-Adicione esta GitHub Action ao seu repositório criando `.github/workflows/pr-review-static.yml`:
+Adicione esta GitHub Action ao seu repositório criando `.github/workflows/pr-review-semgrep.yml`:
 
 ```yaml
-name: PR Review - Static Analysis
+name: PR Review - Semgrep Static Analysis
 
 permissions:
   contents: read

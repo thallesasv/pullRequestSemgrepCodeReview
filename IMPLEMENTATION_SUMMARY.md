@@ -13,7 +13,7 @@ Você agora tem uma versão completa do PR Review AI que **funciona sem LLM**, u
 | Arquivo | Descrição | Tamanho |
 |---------|-----------|--------|
 | `src/static-analysis.ts` | Motor de análise estática com todas as detecções | 500+ linhas |
-| `.github/workflows/pr-review-static.yml` | Workflow GitHub Actions para modo estático | 15 linhas |
+| `.github/workflows/pr-review-semgrep.yml` | Workflow GitHub Actions para modo estático | 15 linhas |
 | `STATIC_ANALYSIS.md` | Documentação técnica completa | 400+ linhas |
 | `COMPARISON.md` | Comparação LLM vs Análise Estática | 350+ linhas |
 | `README_STATIC.md` | README específico para versão static | 250+ linhas |
@@ -22,7 +22,7 @@ Você agora tem uma versão completa do PR Review AI que **funciona sem LLM**, u
 
 | Arquivo | Mudanças |
 |---------|----------|
-| `src/prompts.ts` | Adicionada lógica condicional para usar análise estática quando `ANALYSIS_MODE=static` |
+| `src/prompts.ts` | Adicionada lógica de análise estática padrão |
 
 ---
 
@@ -69,7 +69,6 @@ Você agora tem uma versão completa do PR Review AI que **funciona sem LLM**, u
 ```yaml
 # .github/workflows/pr-review.yml
 env:
-  ANALYSIS_MODE: "static"  # Ativa análise estática
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -80,7 +79,7 @@ env:
 
 ### Localmente
 ```bash
-ANALYSIS_MODE=static npm run review
+npm run review
 ```
 
 ---
@@ -147,14 +146,11 @@ return mergeResults(staticAnalysis, llmAnalysis);
 
 ### Opção 1: Usar Neste Repositório
 ```bash
-# Ativar modo static
-export ANALYSIS_MODE=static
-
 # Testar localmente
 npm run review
 
 # Criar workflow no GitHub
-# Copiar .github/workflows/pr-review-static.yml
+# Copiar .github/workflows/pr-review-semgrep.yml
 ```
 
 ### Opção 2: Criar Novo Repositório
@@ -239,8 +235,7 @@ Preocupações de Segurança: Nenhuma óbvia
 ### Variáveis de Ambiente
 
 ```bash
-# Modo de análise (padrão: "llm")
-ANALYSIS_MODE=static
+# Modo de análise: estático por padrão
 
 # GitHub
 GITHUB_TOKEN=seu_token
@@ -273,7 +268,7 @@ function analyzeCompanyPatterns(hunk: Hunk): AIComment[] {
 | "Sem comentários no PR" | Em modo static, respostas interativas não existem. Use LLM mode. |
 | "Falsos positivos" | Normal em análise estática. Estenda/customize as regras. |
 | "Não encontra meu bug" | Análise estática é limitada. Use ESLint + SonarQube + LLM. |
-| "Quero responder comentários" | Respostas interativas requerem LLM. Use ANALYSIS_MODE=llm. |
+| "Quero responder comentários" | Respostas interativas requerem LLM. Este fluxo estático não responde comentários. |
 
 ---
 
@@ -310,10 +305,10 @@ Se você vai criar um novo repositório com esta versão:
 □ Remover/arquivar código LLM (opcional)
 □ Atualizar action.yml para remover LLM_API_KEY
 □ Usar README_STATIC.md como README principal
-□ Configurar .github/workflows/pr-review-static.yml
+□ Configurar .github/workflows/pr-review-semgrep.yml
 □ Adicionar STATIC_ANALYSIS.md à documentação
 □ Adicionar COMPARISON.md para referência
-□ Testar localmente com ANALYSIS_MODE=static
+□ Testar localmente com o fluxo estático padrão
 □ Fazer commit com "Version 1.0.0 - Static Analysis Edition"
 □ Publicar em novo repositório
 ```
