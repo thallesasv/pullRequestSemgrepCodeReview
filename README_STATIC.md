@@ -48,7 +48,6 @@ jobs:
       - uses: thallesasv/pullRequestCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANALYSIS_MODE: "static"
 ```
 
 ### 2️⃣ Pronto! 🎉
@@ -187,10 +186,10 @@ npm run build
 ### Uso
 ```bash
 # Executar CLI em modo análise estática
-ANALYSIS_MODE=static GITHUB_TOKEN=your_token npm run review
+GITHUB_TOKEN=your_token npm run review
 
 # Ou com Node
-ANALYSIS_MODE=static node dist/cli.js
+node dist/cli.js
 ```
 
 ---

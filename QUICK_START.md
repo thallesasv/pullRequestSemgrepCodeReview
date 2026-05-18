@@ -15,8 +15,8 @@
 
 ### 2. **Integração com Prompts** 🔗
 - ✅ Arquivo: `src/prompts.ts` (modificado)
-- Verifica variável `ANALYSIS_MODE`
-- Se `static`: usa análise estática
+- Usa análise estática por padrão
+- Mantém compatibilidade com o fluxo LLM existente
 - Se `llm`: usa LLM como antes (compatível)
 - Suporta modo híbrido no futuro
 
@@ -38,18 +38,16 @@
 ### Opção 1: Modo Static Neste Repositório
 
 ```bash
-# Ativar para o GitHub Actions
-export ANALYSIS_MODE=static
+# A action já usa análise estática por padrão
 # E fazer commit no workflow
 
 # Ou testar localmente
-ANALYSIS_MODE=static npm run review
+npm run review
 ```
 
 **Workflow (`.github/workflows/pr-review.yml`):**
 ```yaml
 env:
-  ANALYSIS_MODE: "static"
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 ```
 
@@ -153,16 +151,13 @@ Testes Relevantes: Não ❌
 
 ### Para Começar Hoje
 ```bash
-# 1. Ativar modo static
-export ANALYSIS_MODE=static
-
-# 2. Testar
+# 1. Testar
 npm run build
 npm test
 
-# 3. Fazer commit
+# 2. Fazer commit
 git add src/static-analysis.ts src/prompts.ts
-git commit -m "Add static analysis mode (ANALYSIS_MODE=static)"
+git commit -m "Use default static analysis"
 git push
 ```
 
@@ -236,7 +231,7 @@ Offline         ✅        ❌
 ## ❓ Dúvidas Comuns
 
 **P: Preciso remover código LLM?**
-R: Não! Mantém compatibilidade. Use `ANALYSIS_MODE=static` para ativar.
+R: Não! A versão atual já usa análise estática por padrão.
 
 **P: Posso usar ambas?**
 R: Sim! Edite `src/prompts.ts` para combinar ambas as análises.
@@ -256,8 +251,7 @@ R: Não para bugs lógicos complexos. Mas é ótima para vulnerabilidades óbvia
 
 ### Se está pronto para começar:
 1. Ler `README_STATIC.md` (5 min)
-2. Ativar `ANALYSIS_MODE=static` (2 min)
-3. Testar localmente (5 min)
+2. Testar localmente (5 min)
 
 ### Se vai criar novo repositório:
 1. Ler `IMPLEMENTATION_SUMMARY.md` (10 min)

@@ -21,4 +21,3 @@ jobs:
       - uses: thallesasv/pullRequestSemgrepCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANALYSIS_MODE: "static"

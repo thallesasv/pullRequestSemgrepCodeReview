@@ -101,23 +101,21 @@ jobs:
       - name: Install Semgrep
         run: python -m pip install semgrep
 
-      - uses: thallesasv/pullRequestStaticCodeReview@main
+      - uses: thallesasv/pullRequestSemgrepCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANALYSIS_MODE: "static"
 ```
 
 A action requer:
 
 - `GITHUB_TOKEN`: Fornecido automaticamente pelo GitHub Actions
-- `ANALYSIS_MODE`: Defina como `static` para usar a análise estática local
 
 ### Suporte ao GitHub Enterprise Server
 
 Se você usa GitHub Enterprise Server, pode configurar a action para funcionar com sua instância adicionando estas variáveis de ambiente:
 
 ```yaml
-      - uses: thallesasv/pullRequestStaticCodeReview@main
+      - uses: thallesasv/pullRequestSemgrepCodeReview@main
         env:
           GITHUB_API_URL: "https://github.example.com/api/v3"
           GITHUB_SERVER_URL: "https://github.example.com"
@@ -126,7 +124,7 @@ Se você usa GitHub Enterprise Server, pode configurar a action para funcionar c
 Você também pode configurar essas opções usando parâmetros de entrada:
 
 ```yaml
-      - uses: thallesasv/pullRequestStaticCodeReview@main
+      - uses: thallesasv/pullRequestSemgrepCodeReview@main
         with:
           github_api_url: "https://github.example.com/api/v3"
           github_server_url: "https://github.example.com"
@@ -154,7 +152,6 @@ Certifique-se de substituir `https://github.example.com` pela URL real do seu Gi
 
 ### ⚙️ Configurável
 
-- Use `ANALYSIS_MODE=static` para forçar o fluxo estático
 - Configure `GITHUB_API_URL` e `GITHUB_SERVER_URL` para GitHub Enterprise Server
 - Ajuste a lógica de revisão editando `src/static-analysis.ts`
 

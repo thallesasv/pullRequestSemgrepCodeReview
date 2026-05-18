@@ -71,12 +71,10 @@ jobs:
       - uses: thallesasv/pullRequestStaticCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ANALYSIS_MODE: "static"  # Ativa modo análise estática
 ```
 
 **Configuração recomendada:**
 - `GITHUB_TOKEN` para autenticação local
-- `ANALYSIS_MODE=static` para forçar a análise estática
 
 ### Opção 2: Execução Local
 
@@ -84,18 +82,17 @@ jobs:
 # Instalar dependências
 npm install
 
-# Executar em modo análise estática
-ANALYSIS_MODE=static npm run review
+# Executar a revisão com análise estática padrão
+npm run review
 
 # Ou com Node.js direto
-ANALYSIS_MODE=static node dist/cli.js
+node dist/cli.js
 ```
 
 ### Variáveis de Ambiente
 
 | Variável | Valor Padrão | Descrição |
 |----------|-------------|-----------|
-| `ANALYSIS_MODE` | `"static"` | A análise estática é o modo padrão |
 | `GITHUB_TOKEN` | - | Token do GitHub (obrigatório) |
 | `DRY_RUN` | `"false"` | Use `"true"` para modo simulação |
 
