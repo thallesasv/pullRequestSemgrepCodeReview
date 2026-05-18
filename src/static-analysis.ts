@@ -1,6 +1,5 @@
 ﻿import { execFileSync } from "child_process";
 import { warning } from "@actions/core";
-import { warning } from "@actions/core";
 import { FileDiff } from "./diff";
 import { AIComment, PullRequestSummary } from "./prompts";
 
@@ -123,8 +122,19 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
     const parsed = JSON.parse(output) as SemgrepOutput;
     return parsed.results ?? [];
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Semgrep analysis failed: ${message}`);
+    if (error && typeof error === "object") {
+      const execError = error as Error & { stdout?: string; stderr?: string };
+      const details = [execError.message, execError.stderr, execError.stdout]
+        .filter(Boolean)
+        .join("\n")
+        .trim();
+
+      throw new Error(
+        `Semgrep analysis failed: ${details || String(error)}`
+      );
+    }
+
+    throw new Error(`Semgrep analysis failed: ${String(error)}`);
   }
 }
 
