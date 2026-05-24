@@ -104,11 +104,18 @@ jobs:
       - uses: thallesasv/pullRequestSemgrepCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+          SEMGREP_CONFIG: ${{ secrets.SEMGREP_APP_TOKEN != '' && 'p/pro' || 'p/default' }}
 ```
 
 A action requer:
 
 - `GITHUB_TOKEN`: Fornecido automaticamente pelo GitHub Actions
+- `SEMGREP_APP_TOKEN`: Segredo do Semgrep AppSec Platform. Quando presente, o workflow usa `p/pro`; caso contrário, cai para `p/default`
+
+Para habilitar as regras Pro, crie o segredo `SEMGREP_APP_TOKEN` em **Settings > Secrets and variables > Actions** do repositório e cole o token gerado no Semgrep AppSec Platform.
+
+Se você quiser que o Semgrep AppSec Platform publique comentários diretamente no PR, isso é um fluxo separado de `Managed Scans` e exige conectar o repositório ao Semgrep AppSec Platform além deste workflow.
 
 ### Suporte ao GitHub Enterprise Server
 

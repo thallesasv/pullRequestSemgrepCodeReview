@@ -21,3 +21,5 @@ jobs:
       - uses: thallesasv/pullRequestSemgrepCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+          SEMGREP_CONFIG: ${{ secrets.SEMGREP_APP_TOKEN != '' && 'p/pro' || 'p/default' }}
