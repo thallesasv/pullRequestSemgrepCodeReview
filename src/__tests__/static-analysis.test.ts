@@ -4,6 +4,11 @@ jest.mock('child_process', () => ({
   execFileSync: jest.fn(),
 }));
 
+jest.mock('fs', () => ({
+  mkdtempSync: jest.fn(() => '/tmp/semgrep-review-test'),
+  readFileSync: jest.fn(),
+}));
+
 jest.mock('@actions/core', () => ({
   info: jest.fn(),
   warning: jest.fn(),
@@ -11,12 +16,14 @@ jest.mock('@actions/core', () => ({
 
 import { execFileSync } from 'child_process';
 import { info, warning } from '@actions/core';
+import { readFileSync } from 'fs';
 import { performStaticAnalysis } from '../static-analysis';
 import { FileDiff } from '../diff';
 
 const execFileSyncMock = execFileSync as jest.Mock;
 const infoMock = info as jest.Mock;
 const warningMock = warning as jest.Mock;
+const readFileSyncMock = readFileSync as jest.Mock;
 
 describe('Semgrep static analysis', () => {
   beforeEach(() => {
@@ -62,7 +69,8 @@ describe('Semgrep static analysis', () => {
       ],
     };
 
-    execFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
+    execFileSyncMock.mockReturnValue('');
+    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
 
     const files: FileDiff[] = [
       {
@@ -79,7 +87,7 @@ describe('Semgrep static analysis', () => {
 
     expect(execFileSyncMock).toHaveBeenCalledWith(
       'semgrep',
-      expect.arrayContaining(['scan', '--config', 'p/default', '--json']),
+      expect.arrayContaining(['scan', '--config', 'p/default', '--json-output']),
       expect.objectContaining({ cwd: expect.any(String) })
     );
     expect(result.issues).toHaveLength(2);
@@ -133,6 +141,7 @@ describe('Semgrep static analysis', () => {
     execFileSyncMock.mockImplementation(() => {
       throw error;
     });
+    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
 
     const files: FileDiff[] = [
       {
@@ -154,8 +163,8 @@ describe('Semgrep static analysis', () => {
       label: 'security',
       critical: true,
     });
-    expect(warningMock).toHaveBeenCalledWith(
-      'Semgrep exited with code 2 but returned parseable JSON; continuing with 1 finding(s)'
+    expect(infoMock).toHaveBeenCalledWith(
+      'Semgrep returned parseable JSON output file with 1 finding(s)'
     );
   });
 });

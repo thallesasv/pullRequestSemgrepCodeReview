@@ -1,4 +1,7 @@
 import { execFileSync } from "child_process";
+import { mkdtempSync, readFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 import { info, warning } from "@actions/core";
 import { FileDiff } from "./diff";
 import { AIComment, PullRequestSummary } from "./prompts";
@@ -103,6 +106,15 @@ function parseSemgrepOutput(output: string): SemgrepFinding[] | null {
   }
 }
 
+function readSemgrepJsonOutput(outputPath: string): SemgrepFinding[] | null {
+  try {
+    const output = readFileSync(outputPath, "utf8");
+    return parseSemgrepOutput(output);
+  } catch {
+    return null;
+  }
+}
+
 function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
   const scanTargets = files
     .filter((file) => file.status !== "removed" && file.hunks.length > 0 && isScannable(file.filename))
@@ -118,14 +130,18 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
   );
   info(`Semgrep targets: ${scanTargets.join(", ")}`);
 
+  const outputDir = mkdtempSync(join(tmpdir(), "semgrep-review-"));
+  const jsonOutputPath = join(outputDir, "semgrep.json");
+
   try {
-    const output = execFileSync(
+    execFileSync(
       "semgrep",
       [
         "scan",
         "--config",
         SEMGREP_CONFIG,
-        "--json",
+        "--json-output",
+        jsonOutputPath,
         "--quiet",
         "--metrics=off",
         "--disable-version-check",
@@ -134,12 +150,12 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
       {
         cwd: process.cwd(),
         encoding: "utf8",
-        maxBuffer: 20 * 1024 * 1024,
+        maxBuffer: 10 * 1024 * 1024,
       }
     );
 
     try {
-      const parsed = parseSemgrepOutput(output);
+      const parsed = readSemgrepJsonOutput(jsonOutputPath);
       if (parsed) {
         info(`Semgrep scan completed successfully with ${parsed.length} finding(s)`);
         return parsed;
@@ -155,6 +171,14 @@ function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
     if (error && typeof error === "object") {
       const execError = error as Error & { code?: number; stdout?: string; stderr?: string };
       const output = execError.stdout?.trim() || execError.stderr?.trim() || "";
+
+      const parsedFromFile = readSemgrepJsonOutput(jsonOutputPath);
+      if (parsedFromFile) {
+        info(
+          `Semgrep returned parseable JSON output file with ${parsedFromFile.length} finding(s)`
+        );
+        return parsedFromFile;
+      }
 
       if (execError.code === 1 && output) {
         try {
