@@ -90,6 +90,31 @@ function isScannable(filename: string): boolean {
     '.cs', '.cpp', '.c', '.swift', '.kt', '.scala', '.rs', '.sh', '.bash'
   ];
   const filename_lower = filename.toLowerCase();
+  // Ignore hidden files or files inside hidden directories (prefix '.')
+  const parts = normalizePath(filename).split('/');
+  for (const p of parts) {
+    if (p.startsWith('.') && p.length > 1) return false;
+  }
+
+  // Common directories we should skip entirely
+  const ignoredDirs = new Set([
+    'node_modules',
+    'dist',
+    'build',
+    'coverage',
+    'vendor',
+    '__pycache__',
+    '.venv',
+    'third_party',
+    'out',
+  ]);
+  if (parts.some(p => ignoredDirs.has(p))) return false;
+
+  // Skip minified files, type declaration files and source maps
+  if (filename_lower.includes('.min.')) return false;
+  if (filename_lower.endsWith('.map')) return false;
+  if (filename_lower.endsWith('.d.ts')) return false;
+
   return scannableExtensions.some(ext => filename_lower.endsWith(ext));
 }
 

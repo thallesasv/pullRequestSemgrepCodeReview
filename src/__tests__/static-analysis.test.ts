@@ -167,4 +167,58 @@ describe('Semgrep static analysis', () => {
       'Semgrep returned parseable JSON output file with 1 finding(s)'
     );
   });
+
+  test('ignores hidden files and directories when building Semgrep targets', () => {
+    const semgrepOutput = {
+      results: [] as any[],
+    };
+
+    execFileSyncMock.mockReturnValue('');
+    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
+
+    const files: FileDiff[] = [
+      {
+        filename: '.github/secret.py',
+        status: 'modified',
+        hunks: [
+          { startLine: 1, endLine: 2, diff: '@@ -1,1 +1,2 @@\n+print(1)' },
+        ],
+      },
+      {
+        filename: 'src/app.ts',
+        status: 'modified',
+        hunks: [
+          { startLine: 1, endLine: 10, diff: '@@ -1,5 +1,10 @@\n+child_process.exec(userInput);' },
+        ],
+      },
+    ];
+
+    const result = performStaticAnalysis(files);
+
+    // Should only pass the visible src/app.ts to Semgrep
+    expect(infoMock).toHaveBeenCalledWith('Running Semgrep with 1 target(s) using config p/default');
+    expect(infoMock).toHaveBeenCalledWith('Semgrep targets: src/app.ts');
+    expect(result.issues).toHaveLength(0);
+  });
+
+  test('ignores generated and third-party directories and non-important files', () => {
+    const semgrepOutput = { results: [] as any[] };
+
+    execFileSyncMock.mockReturnValue('');
+    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
+
+    const files: FileDiff[] = [
+      { filename: 'node_modules/lib/index.js', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+a' }] },
+      { filename: 'dist/bundle.js', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+b' }] },
+      { filename: 'src/app.min.js', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+c' }] },
+      { filename: 'src/types.d.ts', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+d' }] },
+      { filename: 'src/app.js', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+e' }] },
+    ];
+
+    const result = performStaticAnalysis(files);
+
+    expect(infoMock).toHaveBeenCalledWith('Running Semgrep with 1 target(s) using config p/default');
+    expect(infoMock).toHaveBeenCalledWith('Semgrep targets: src/app.js');
+    expect(result.issues).toHaveLength(0);
+  });
 });
