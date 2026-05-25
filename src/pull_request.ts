@@ -66,9 +66,10 @@ export async function handlePullRequest() {
     : [];
 
   // Get modified files
-  const { data: files } = await octokit.rest.pulls.listFiles({
+  const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
     ...context.repo,
     pull_number: pull_request.number,
+    per_page: 100,
   });
   let filesToReview = files.map((file) =>
     parseFileDiff(file, reviewCommentThreads)
