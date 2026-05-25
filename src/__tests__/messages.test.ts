@@ -177,4 +177,18 @@ describe('Messages', () => {
       writable: true
     });
   });
+
+  test('buildLoadingMessage truncates large file lists safely', () => {
+    const largeFileDiffs: FileDiff[] = Array.from({ length: 3000 }, (_, index) => ({
+      filename: `.github/workflows/generated-${index}.yml`,
+      status: 'modified',
+      hunks: [{ startLine: 1, endLine: 1, diff: '@@ -1,1 +1,1 @@\n+changed' }]
+    }));
+
+    const message = buildLoadingMessage('base-sha', mockCommits, largeFileDiffs);
+
+    expect(message).toContain('Arquivos sendo considerados (3000)');
+    expect(message).toContain('... e mais 2950 arquivo(s) omitidos');
+    expect(message.length).toBeLessThan(65536);
+  });
 });

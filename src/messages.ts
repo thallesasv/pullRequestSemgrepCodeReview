@@ -48,6 +48,23 @@ function getCommitUrl(
   return `${baseUrl}/${owner}/${repo}/commit/${sha}`;
 }
 
+function formatLoadingFileEntry(diff: FileDiff): string {
+  let prefix = "🔄"; // Modified
+  if (diff.status === "added") prefix = "➕";
+  if (diff.status === "removed") prefix = "➖";
+  if (diff.status === "renamed") prefix = "📝";
+
+  let fileText = `${prefix} ${diff.filename}`;
+  if (diff.status === "renamed") {
+    fileText += ` (de ${diff.previous_filename})`;
+  }
+  fileText += ` _(${diff.hunks.length} ${
+    diff.hunks.length === 1 ? "trecho" : "trechos"
+  })_`;
+
+  return fileText;
+}
+
 export function buildLoadingMessage(
   baseCommit: string,
   commits: {
@@ -84,21 +101,16 @@ export function buildLoadingMessage(
 
   message += "\n\n</details>\n\n";
 
-  message += `<details>\n<summary>📁 Arquivos sendo considerados (${fileDiffs.length})</summary>\n\n`;
-  for (const diff of fileDiffs) {
-    let prefix = "🔄"; // Modified
-    if (diff.status === "added") prefix = "➕";
-    if (diff.status === "removed") prefix = "➖";
-    if (diff.status === "renamed") prefix = "📝";
+  const maxListedFiles = 50;
+  const listedFiles = fileDiffs.slice(0, maxListedFiles);
+  const remainingFiles = fileDiffs.length - listedFiles.length;
 
-    let fileText = `${prefix} ${diff.filename}`;
-    if (diff.status === "renamed") {
-      fileText += ` (de ${diff.previous_filename})`;
-    }
-    fileText += ` _(${diff.hunks.length} ${
-      diff.hunks.length === 1 ? "trecho" : "trechos"
-    })_`;
-    message += `${fileText}\n`;
+  message += `<details>\n<summary>📁 Arquivos sendo considerados (${fileDiffs.length})</summary>\n\n`;
+  for (const diff of listedFiles) {
+    message += `${formatLoadingFileEntry(diff)}\n`;
+  }
+  if (remainingFiles > 0) {
+    message += `\n_... e mais ${remainingFiles} arquivo(s) omitidos para manter o comentario dentro do limite do GitHub._\n`;
   }
   message += "\n</details>\n\n";
 
