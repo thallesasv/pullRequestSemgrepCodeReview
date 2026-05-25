@@ -65,6 +65,22 @@ function formatLoadingFileEntry(diff: FileDiff): string {
   return fileText;
 }
 
+function formatSummaryFileEntry(diff: FileDiff): string {
+  const escapedFilename = diff.filename.replace(/\|/g, "\\|");
+  let summary = `Alteracoes em ${diff.hunks.length} ${
+    diff.hunks.length === 1 ? "trecho" : "trechos"
+  } com aproximadamente ${diff.hunks.reduce(
+    (total, hunk) => total + hunk.diff.split("\n").filter(Boolean).length,
+    0
+  )} linha(s).`;
+
+  if (diff.status === "renamed" && diff.previous_filename) {
+    summary = `Renomeado de ${diff.previous_filename}. ${summary}`;
+  }
+
+  return `| \`${escapedFilename}\` | ${summary.replace(/\|/g, "\\|")} |`;
+}
+
 export function buildLoadingMessage(
   baseCommit: string,
   commits: {
@@ -135,12 +151,19 @@ export function buildOverviewMessage(
   message += `| Arquivo | Resumo |\n`;
   message += `|:----------|:---------------|\n`; // Left-align columns
 
-  for (const file of summary.files) {
-    // Escape pipes and wrap paths in backticks for better formatting
+  const maxListedFiles = 50;
+  const listedFiles = summary.files.slice(0, maxListedFiles);
+  const remainingFiles = summary.files.length - listedFiles.length;
+
+  for (const file of listedFiles) {
     const escapedPath = file.filename.replace(/\|/g, "\\|");
     const escapedSummary = file.summary.replace(/\|/g, "\\|");
-
     message += `| \`${escapedPath}\` | ${escapedSummary} |\n`;
+  }
+
+  if (remainingFiles > 0) {
+    message += `| _... e mais ${remainingFiles} arquivo(s) omitidos para manter o comentario dentro do limite do GitHub._ | |
+`;
   }
 
   const payload = {
@@ -193,7 +216,11 @@ export function buildReviewSummary(
 
   // Files section
   body += `<details>\n<summary>Arquivos analisados (${files.length})</summary>\n\n`;
-  for (const diff of files) {
+  const maxListedFiles = 50;
+  const listedFiles = files.slice(0, maxListedFiles);
+  const remainingFiles = files.length - listedFiles.length;
+
+  for (const diff of listedFiles) {
     let fileText = `- ${diff.filename}`;
     if (diff.status === "renamed") {
       fileText += ` (de ${diff.previous_filename})`;
@@ -202,6 +229,9 @@ export function buildReviewSummary(
       diff.hunks.length === 1 ? "trecho" : "trechos"
     })_`;
     body += `${fileText}\n`;
+  }
+  if (remainingFiles > 0) {
+    body += `\n_... e mais ${remainingFiles} arquivo(s) omitidos para manter o comentario dentro do limite do GitHub._\n`;
   }
   body += "\n</details>\n\n";
 

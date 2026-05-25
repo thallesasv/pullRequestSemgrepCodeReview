@@ -159,8 +159,9 @@ _... e mais ${a} arquivo(s) omitidos para manter o comentario dentro do limite d
 
 `,t+=`| Arquivo | Resumo |
 `,t+=`|:----------|:---------------|
-`;for(let s of e.files){let o=s.filename.replace(/\|/g,"\\|"),n=s.summary.replace(/\|/g,"\\|");t+=`| \`${o}\` | ${n} |
-`}let r={commits:A};return t+=tY,t+=Zu,t+=jf,t+=JSON.stringify(r),t+=Zf,t}function sY(e,A,t,r,s){let{owner:o,repo:n}=e.repo,i="";r.length===0?i+=`\u2705 **Me avise caso precise de ajuda!**
+`;let s=e.files.slice(0,50),o=e.files.length-s.length;for(let i of s){let a=i.filename.replace(/\|/g,"\\|"),c=i.summary.replace(/\|/g,"\\|");t+=`| \`${a}\` | ${c} |
+`}o>0&&(t+=`| _... e mais ${o} arquivo(s) omitidos para manter o comentario dentro do limite do GitHub._ | |
+`);let n={commits:A};return t+=tY,t+=Zu,t+=jf,t+=JSON.stringify(n),t+=Zf,t}function sY(e,A,t,r,s){let{owner:o,repo:n}=e.repo,i="";r.length===0?i+=`\u2705 **Me avise caso precise de ajuda!**
 
 `:i+=`\u{1F6A8} **Pull request precisa de atencao.**
 
@@ -169,24 +170,26 @@ _... e mais ${a} arquivo(s) omitidos para manter o comentario dentro do limite d
 `,i+=`<details>
 <summary>Commits Considerados (${t.length})</summary>
 
-`;for(let a of t)i+=`- [${a.sha.slice(0,7)}](${rY(Wr.githubServerUrl,o,n,a.sha)}): ${a.commit.message}
+`;for(let E of t)i+=`- [${E.sha.slice(0,7)}](${rY(Wr.githubServerUrl,o,n,E.sha)}): ${E.commit.message}
 `;i+=`
 </details>
 
 `,i+=`<details>
 <summary>Arquivos analisados (${A.length})</summary>
 
-`;for(let a of A){let c=`- ${a.filename}`;a.status==="renamed"&&(c+=` (de ${a.previous_filename})`),c+=` _(${a.hunks.length} ${a.hunks.length===1?"trecho":"trechos"})_`,i+=`${c}
-`}i+=`
+`;let c=A.slice(0,50),g=A.length-c.length;for(let E of c){let l=`- ${E.filename}`;E.status==="renamed"&&(l+=` (de ${E.previous_filename})`),l+=` _(${E.hunks.length} ${E.hunks.length===1?"trecho":"trechos"})_`,i+=`${l}
+`}g>0&&(i+=`
+_... e mais ${g} arquivo(s) omitidos para manter o comentario dentro do limite do GitHub._
+`),i+=`
 </details>
 
 `,i+=`<details>
 <summary>Pontos de Acao (${r.length})</summary>
 
-`;for(let a of r)i+=`- <details>
-`,i+=`  <summary>${a.file} [${a.start_line}-${a.end_line}]</summary>
+`;for(let E of r)i+=`- <details>
+`,i+=`  <summary>${E.file} [${E.start_line}-${E.end_line}]</summary>
 
-`,i+=`  > ${eY(a.label)}: "${a.header}"
+`,i+=`  > ${eY(E.label)}: "${E.header}"
 `,i+=`  </details>
 `;i+=`
 </details>
@@ -194,10 +197,10 @@ _... e mais ${a} arquivo(s) omitidos para manter o comentario dentro do limite d
 `,i+=`<details>
 <summary>Comentarios Ignorados (${s.length})</summary>
 
-`;for(let a of s)i+=`- <details>
-`,i+=`  <summary>${a.file} [${a.start_line}-${a.end_line}]</summary>
+`;for(let E of s)i+=`- <details>
+`,i+=`  <summary>${E.file} [${E.start_line}-${E.end_line}]</summary>
 
-`,i+=`  > ${eY(a.label)}: "${a.header}"
+`,i+=`  > ${eY(E.label)}: "${E.header}"
 `,i+=`  </details>
 `;return i+=`</details>
 

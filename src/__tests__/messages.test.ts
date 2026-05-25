@@ -96,6 +96,25 @@ describe('Messages', () => {
     expect(message).toContain('"commits":["commit1","commit2"]');
   });
 
+  test('buildOverviewMessage truncates large file lists safely', () => {
+    const largeSummary: PullRequestSummary = {
+      title: 'Large PR',
+      description: 'Large summary',
+      files: Array.from({ length: 3000 }, (_, index) => ({
+        filename: `.github/workflows/generated-${index}.yml`,
+        summary: `Arquivo novo. Alteracoes em 1 trecho(s) com aproximadamente ${index + 1} linha(s).`,
+        title: `File ${index}`,
+      })),
+      type: ['ENHANCEMENT'],
+    };
+
+    const message = buildOverviewMessage(largeSummary, ['commit1', 'commit2']);
+
+    expect(message).toContain('Large summary');
+    expect(message).toContain('2950 arquivo(s) omitidos');
+    expect(message.length).toBeLessThan(65536);
+  });
+
   test('buildReviewSummary formats correctly with comments', () => {
     const mockActionableComments: AIComment[] = [
       {
@@ -157,6 +176,26 @@ describe('Messages', () => {
     expect(summary).toContain('Pontos de Acao (0)');
     expect(summary).toContain('Comentarios Ignorados (0)');
     expect(summary).toContain('https://github.com/test-owner/test-repo/commit/');
+  });
+
+  test('buildReviewSummary truncates large file lists safely', () => {
+    const largeFiles: FileDiff[] = Array.from({ length: 3000 }, (_, index) => ({
+      filename: `.github/workflows/generated-${index}.yml`,
+      status: 'modified',
+      hunks: [{ startLine: 1, endLine: 1, diff: '@@ -1,1 +1,1 @@\n+changed' }]
+    }));
+
+    const summary = buildReviewSummary(
+      mockContext,
+      largeFiles,
+      mockCommits,
+      [],
+      []
+    );
+
+    expect(summary).toContain('Arquivos analisados (3000)');
+    expect(summary).toContain('... e mais 2950 arquivo(s) omitidos');
+    expect(summary.length).toBeLessThan(65536);
   });
 
   test('buildLoadingMessage uses custom GitHub server URL', () => {
