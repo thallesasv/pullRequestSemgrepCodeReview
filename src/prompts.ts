@@ -68,7 +68,7 @@ export async function runReviewPrompt(
   pr: PullRequestReviewPrompt
 ): Promise<PullRequestReview> {
   info("Using static analysis for PR review");
-  const analysisResult = performStaticAnalysis(pr.files);
+  const analysisResult = await performStaticAnalysis(pr.files);
   return {
     review: {
       estimated_effort_to_review:

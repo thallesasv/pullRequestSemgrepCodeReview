@@ -13,14 +13,14 @@
 
 <br/>
 
-O PR Review Static faz revisão automática de pull requests usando Semgrep como motor de análise estática. Ele lê o diff do PR, identifica padrões de bug e segurança, gera um resumo do que mudou e publica comentários inline quando encontra pontos acionáveis.
+O PR Review Static faz revisão automática de pull requests usando SonarCloud como fonte de findings. Ele lê o diff do PR, consulta a API do SonarCloud, gera um resumo do que mudou e publica comentários inline quando encontra pontos acionáveis.
 
 - 🔍 **Análise de diff**: Examina apenas o código alterado no PR
 - 🛡️ **Detecção de problemas comuns**: Busca sinais de bugs, vulnerabilidades e más práticas
 - 📝 **Resumo automático do PR**: Gera um título e uma descrição consistentes com a mudança
 - 💬 **Comentários inline**: Publica comentários de revisão diretamente nas linhas afetadas
 - ⚡ **Sem dependência de LLM**: Não exige chave de API nem configuração de provedor externo
-- 🧰 **Baseado em Semgrep**: Usa regras consolidadas de análise estática em vez de heurísticas manuais
+- 🧰 **Baseado em SonarCloud**: Usa issues consolidadas do SonarCloud em vez de heurísticas manuais
 
 <br/>
 
@@ -29,8 +29,8 @@ O PR Review Static faz revisão automática de pull requests usando Semgrep como
 O fluxo da action é simples:
 
 1. A GitHub Action é acionada em `pull_request_target`.
-2. O workflow faz checkout do repositório e instala o Semgrep.
-3. O motor Semgrep processa os arquivos alterados do PR.
+2. O workflow executa o scanner do SonarCloud no pull request.
+3. O sistema consulta a API do SonarCloud para buscar os issues do PR.
 4. O sistema traduz os findings em comentários, score e resumo do PR.
 5. O sistema publica o resumo e os comentários de revisão no próprio PR.
 
@@ -39,16 +39,16 @@ O modo de comentário em threads existe no código, mas responde com saída vazi
 ### Como a análise é feita
 
 
-A análise estática usa o Semgrep no runner. O repositório apenas adapta a saída da ferramenta para o formato de review do GitHub. A integração principal está em [src/static-analysis.ts](src/static-analysis.ts) e [src/diff.ts](src/diff.ts).
+A análise estática usa a API do SonarCloud. O repositório apenas adapta a saída da ferramenta para o formato de review do GitHub. A integração principal está em [src/static-analysis.ts](src/static-analysis.ts) e [src/diff.ts](src/diff.ts).
 
 O processamento segue este caminho:
 
 1. O diff do PR é convertido em hunks com linha inicial e final.
-2. O Semgrep varre os arquivos alterados com um conjunto de regras padrão.
-3. A saída JSON é filtrada para manter apenas findings nas linhas alteradas.
+2. O SonarCloud executa a análise do pull request no pipeline.
+3. A saída JSON da API é filtrada para manter apenas findings nas linhas alteradas.
 4. Os achados viram comentários inline, score de qualidade, esforço estimado e resumo do PR.
 
-As regras cobrem casos como SQL injection, XSS, segredos hardcoded, uso inseguro de APIs, código morto, problemas de manutenção e outras classes de findings suportadas pelo conjunto de regras do Semgrep.
+Os findings cobrem casos como SQL injection, XSS, segredos hardcoded, uso inseguro de APIs, código morto, problemas de manutenção e outras classes de issues suportadas pelo SonarCloud.
 
 ## Veja em ação
 
@@ -78,10 +78,10 @@ Comentários de revisão ajudam a esclarecer detalhes de implementação:
 
 ### Passo 1: Crie o workflow do GitHub
 
-Adicione esta GitHub Action ao seu repositório criando `.github/workflows/pr-review-semgrep.yml`:
+Adicione esta GitHub Action ao seu repositório criando `.github/workflows/pr-review-sonarcloud.yml`:
 
 ```yaml
-name: PR Review - Semgrep Static Analysis
+name: PR Review - SonarCloud Static Analysis
 
 permissions:
   contents: read
@@ -98,24 +98,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Semgrep
-        run: python -m pip install semgrep
+      - name: Run SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+        with:
+          args: >-
+            -Dsonar.organization=${{ secrets.SONARCLOUD_ORGANIZATION }}
+            -Dsonar.projectKey=${{ secrets.SONARCLOUD_PROJECT_KEY }}
+            -Dsonar.pullrequest.key=${{ github.event.pull_request.number }}
+            -Dsonar.pullrequest.branch=${{ github.head_ref }}
+            -Dsonar.pullrequest.base=${{ github.base_ref }}
+
+      - name: Wait for SonarCloud quality gate
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
       - uses: thallesasv/pullRequestSemgrepCodeReview@main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
-          SEMGREP_CONFIG: ${{ secrets.SEMGREP_APP_TOKEN != '' && 'p/pro' || 'p/default' }}
+          SONARCLOUD_TOKEN: ${{ secrets.SONARCLOUD_TOKEN }}
+          SONARCLOUD_ORGANIZATION: ${{ secrets.SONARCLOUD_ORGANIZATION }}
+          SONARCLOUD_PROJECT_KEY: ${{ secrets.SONARCLOUD_PROJECT_KEY }}
+          SONARCLOUD_URL: https://sonarcloud.io
 ```
 
 A action requer:
 
 - `GITHUB_TOKEN`: Fornecido automaticamente pelo GitHub Actions
-- `SEMGREP_APP_TOKEN`: Segredo do Semgrep AppSec Platform. Quando presente, o workflow usa `p/pro`; caso contrário, cai para `p/default`
+- `SONARCLOUD_TOKEN`: Token do SonarCloud usado para consultar a API
+- `SONARCLOUD_ORGANIZATION`: Chave da organização no SonarCloud
+- `SONARCLOUD_PROJECT_KEY`: Chave do projeto no SonarCloud
 
-Para habilitar as regras Pro, crie o segredo `SEMGREP_APP_TOKEN` em **Settings > Secrets and variables > Actions** do repositório e cole o token gerado no Semgrep AppSec Platform.
+Para habilitar o fluxo, crie os segredos `SONARCLOUD_TOKEN`, `SONARCLOUD_ORGANIZATION` e `SONARCLOUD_PROJECT_KEY` em **Settings > Secrets and variables > Actions** do repositório.
 
-Se você quiser que o Semgrep AppSec Platform publique comentários diretamente no PR, isso é um fluxo separado de `Managed Scans` e exige conectar o repositório ao Semgrep AppSec Platform além deste workflow.
+Se você quiser que o SonarCloud também faça a decoração nativa do PR, isso acontece no próprio pipeline de análise do SonarCloud; este repositório apenas lê a API e publica os comentários.
 
 ### Suporte ao GitHub Enterprise Server
 

@@ -1,10 +1,10 @@
 name: "PR Review Static"
-description: "Semgrep-powered pull request reviews that detect issues and provide summaries."
+description: "SonarCloud-powered pull request reviews that detect issues and provide summaries."
 author: "PR Review Static"
 branding:
   icon: "check-square"
   color: "black"
-  tags: "semgrep,code-review,static-analysis,automation,pull-requests,linting,ci,devtools"
+  tags: "sonarcloud,code-review,static-analysis,automation,pull-requests,linting,ci,devtools"
 
 runs:
   using: "node20"
@@ -23,3 +23,19 @@ inputs:
     required: false
     description: 'GitHub Server URL for GitHub Enterprise Server (e.g., https://github.example.com)'
     default: 'https://github.com'
+  sonarcloud_token:
+    required: false
+    description: 'SonarCloud token used to query issues from the SonarCloud API'
+    default: ''
+  sonarcloud_organization:
+    required: false
+    description: 'SonarCloud organization key'
+    default: ''
+  sonarcloud_project_key:
+    required: false
+    description: 'SonarCloud project key'
+    default: ''
+  sonarcloud_url:
+    required: false
+    description: 'SonarCloud base URL'
+    default: 'https://sonarcloud.io'

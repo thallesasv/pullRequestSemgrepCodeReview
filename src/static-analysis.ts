@@ -1,14 +1,13 @@
-import { execFileSync } from "child_process";
-import { mkdtempSync, readFileSync } from "fs";
-import { tmpdir } from "os";
-import { join } from "path";
+import axios from "axios";
+import { readFileSync } from "fs";
 import { info, warning } from "@actions/core";
 import { FileDiff } from "./diff";
 import { AIComment, PullRequestSummary } from "./prompts";
+import config from "./config";
 
 /**
- * Static analysis module powered by Semgrep.
- * Semgrep runs the rule engine; this file adapts its JSON output to the
+ * Static analysis module powered by SonarCloud.
+ * SonarCloud runs the rule engine; this file adapts its JSON output to the
  * comment and summary format used by the GitHub review flow.
  */
 
@@ -22,29 +21,30 @@ export interface StaticAnalysisResult {
   };
 }
 
-type SemgrepSeverity = "INFO" | "WARNING" | "ERROR" | string;
+type SonarCloudSeverity = "BLOCKER" | "CRITICAL" | "MAJOR" | "MINOR" | "INFO" | string;
 
-type SemgrepFinding = {
-  check_id: string;
-  path: string;
-  start?: { line?: number };
-  end?: { line?: number };
-  extra?: {
-    message?: string;
-    severity?: SemgrepSeverity;
-    lines?: string;
-    metadata?: Record<string, unknown>;
+type SonarCloudIssue = {
+  key: string;
+  rule?: string;
+  severity?: SonarCloudSeverity;
+  component: string;
+  line?: number;
+  message?: string;
+  type?: string;
+  textRange?: {
+    startLine?: number;
+    endLine?: number;
   };
 };
 
-type SemgrepOutput = {
-  results?: SemgrepFinding[];
-  errors?: unknown[];
+type SonarCloudOutput = {
+  issues?: SonarCloudIssue[];
+  total?: number;
 };
 
 type LineRange = { start: number; end: number };
 
-const SEMGREP_CONFIG = process.env.SEMGREP_CONFIG || "p/default";
+const SONARCLOUD_URL = config.sonarcloudUrl || "https://sonarcloud.io";
 
 function normalizePath(value: string): string {
   return value.replace(/\\/g, "/");
@@ -68,19 +68,25 @@ function buildChangedLineRanges(files: FileDiff[]): Map<string, LineRange[]> {
 }
 
 function isFindingInChangedLines(
-  finding: SemgrepFinding,
+  finding: SonarCloudIssue,
   changedRanges: Map<string, LineRange[]>
 ): boolean {
-  const fileRanges = changedRanges.get(normalizePath(finding.path));
+  const fileRanges = changedRanges.get(normalizePath(normalizeSonarComponent(finding.component)));
   if (!fileRanges || fileRanges.length === 0) {
     return false;
   }
 
-  const startLine = finding.start?.line ?? finding.end?.line ?? 0;
-  const endLine = finding.end?.line ?? startLine;
+  const startLine = finding.textRange?.startLine ?? finding.line ?? 0;
+  const endLine = finding.textRange?.endLine ?? startLine;
   return fileRanges.some(
     (range) => endLine >= range.start && startLine <= range.end
   );
+}
+
+function normalizeSonarComponent(component: string): string {
+  const normalized = normalizePath(component);
+  const colonIndex = normalized.indexOf(":");
+  return colonIndex >= 0 ? normalized.slice(colonIndex + 1) : normalized;
 }
 
 function isScannable(filename: string): boolean {
@@ -118,150 +124,110 @@ function isScannable(filename: string): boolean {
   return scannableExtensions.some(ext => filename_lower.endsWith(ext));
 }
 
-function parseSemgrepOutput(output: string): SemgrepFinding[] | null {
+function parseSonarCloudOutput(output: string): SonarCloudIssue[] | null {
   if (!output.trim()) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(output) as SemgrepOutput;
-    return parsed.results ?? [];
+    const parsed = JSON.parse(output) as SonarCloudOutput;
+    return parsed.issues ?? [];
   } catch {
     return null;
   }
 }
 
-function readSemgrepJsonOutput(outputPath: string): SemgrepFinding[] | null {
+function readGitHubEventPullRequestNumber(): number | null {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath) {
+    return null;
+  }
+
   try {
-    const output = readFileSync(outputPath, "utf8");
-    return parseSemgrepOutput(output);
+    const payload = JSON.parse(readFileSync(eventPath, "utf8")) as {
+      pull_request?: { number?: number };
+    };
+    return payload.pull_request?.number ?? null;
   } catch {
     return null;
   }
 }
 
-function runSemgrep(files: FileDiff[]): SemgrepFinding[] {
+function runSonarCloud(files: FileDiff[]): Promise<SonarCloudIssue[]> {
   const scanTargets = files
     .filter((file) => file.status !== "removed" && file.hunks.length > 0 && isScannable(file.filename))
     .map((file) => file.filename);
 
   if (scanTargets.length === 0) {
-    info("Semgrep skipped: no scannable file targets found");
-    return [];
+    info("SonarCloud skipped: no scannable file targets found");
+    return Promise.resolve([]);
+  }
+
+  const token = config.sonarcloudToken;
+  const projectKey = config.sonarcloudProjectKey;
+  const organization = config.sonarcloudOrganization;
+  const pullRequestNumber = readGitHubEventPullRequestNumber();
+
+  if (!token || !projectKey || !organization || !pullRequestNumber) {
+    warning(
+      "SonarCloud analysis skipped: missing SONARCLOUD_TOKEN, SONARCLOUD_ORGANIZATION, SONARCLOUD_PROJECT_KEY or pull request number"
+    );
+    return Promise.resolve([]);
   }
 
   info(
-    `Running Semgrep with ${scanTargets.length} target(s) using config ${SEMGREP_CONFIG}`
+    `Running SonarCloud with ${scanTargets.length} target(s) for ${projectKey} in organization ${organization}`
   );
-  info(`Semgrep targets: ${scanTargets.join(", ")}`);
+  info(`SonarCloud targets: ${scanTargets.join(", ")}`);
 
-  const outputDir = mkdtempSync(join(tmpdir(), "semgrep-review-"));
-  const jsonOutputPath = join(outputDir, "semgrep.json");
+  const endpoint = new URL("/api/issues/search", SONARCLOUD_URL);
+  endpoint.searchParams.set("organization", organization);
+  endpoint.searchParams.set("componentKeys", projectKey);
+  endpoint.searchParams.set("pullRequest", String(pullRequestNumber));
+  endpoint.searchParams.set("resolved", "false");
+  endpoint.searchParams.set("ps", "500");
 
-  try {
-    execFileSync(
-      "semgrep",
-      [
-        "scan",
-        "--config",
-        SEMGREP_CONFIG,
-        "--json-output",
-        jsonOutputPath,
-        "--quiet",
-        "--metrics=off",
-        "--disable-version-check",
-        ...scanTargets,
-      ],
-      {
-        cwd: process.cwd(),
-        encoding: "utf8",
-        maxBuffer: 10 * 1024 * 1024,
-      }
-    );
-
-    try {
-      const parsed = readSemgrepJsonOutput(jsonOutputPath);
+  return axios
+    .get(endpoint.toString(), {
+      auth: {
+        username: token,
+        password: "",
+      },
+      timeout: 30000,
+    })
+    .then((response) => {
+      const parsed = response.data as SonarCloudOutput;
+      const issues = parsed.issues ?? [];
+      info(`SonarCloud scan completed successfully with ${issues.length} finding(s)`);
+      return issues;
+    })
+    .catch((error) => {
+      const responseText =
+        error && typeof error === "object" && "response" in error
+          ? JSON.stringify((error as { response?: { data?: unknown } }).response?.data ?? "")
+          : "";
+      const parsed = parseSonarCloudOutput(responseText);
       if (parsed) {
-        info(`Semgrep scan completed successfully with ${parsed.length} finding(s)`);
-        return parsed;
-      }
-
-      throw new Error("Semgrep returned an unparseable JSON payload");
-    } catch (parseError) {
-      throw new Error(
-        `Semgrep analysis failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`
-      );
-    }
-  } catch (error) {
-    if (error && typeof error === "object") {
-      const execError = error as Error & { code?: number; stdout?: string; stderr?: string };
-      const output = execError.stdout?.trim() || execError.stderr?.trim() || "";
-
-      const parsedFromFile = readSemgrepJsonOutput(jsonOutputPath);
-      if (parsedFromFile) {
-        info(
-          `Semgrep returned parseable JSON output file with ${parsedFromFile.length} finding(s)`
-        );
-        return parsedFromFile;
-      }
-
-      if (execError.code === 1 && output) {
-        try {
-          const parsed = JSON.parse(output) as SemgrepOutput;
-          info(
-            `Semgrep exited with code 1 but returned parseable JSON containing ${parsed.results?.length ?? 0} finding(s)`
-          );
-          return parsed.results ?? [];
-        } catch (parseError) {
-          throw new Error(
-            `Semgrep analysis failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`
-          );
-        }
-      }
-
-      const details = [
-        `exit code: ${execError.code ?? "unknown"}`,
-        execError.message,
-        execError.stderr,
-        execError.stdout,
-      ]
-        .filter(Boolean)
-        .join("\n")
-        .trim();
-
-      const parsed = parseSemgrepOutput(execError.stdout?.trim() || execError.stderr?.trim() || "");
-      if (parsed) {
-        warning(
-          `Semgrep exited with code ${execError.code ?? "unknown"} but returned parseable JSON; continuing with ${parsed.length} finding(s)`
-        );
+        info(`SonarCloud returned parseable JSON with ${parsed.length} finding(s)`);
         return parsed;
       }
 
       warning(
-        `Semgrep analysis failed, continuing without findings: ${details || String(error)}`
-      );
-      warning(
-        `Semgrep stdout: ${execError.stdout?.trim() || "<empty>"}`
-      );
-      warning(
-        `Semgrep stderr: ${execError.stderr?.trim() || "<empty>"}`
+        `SonarCloud analysis failed, continuing without findings: ${error instanceof Error ? error.message : String(error)}`
       );
       return [];
-    }
-
-    throw new Error(`Semgrep analysis failed: ${String(error)}`);
-  }
+    });
 }
 
-function isSecurityFinding(finding: SemgrepFinding): boolean {
-  const text = `${finding.check_id} ${finding.extra?.message ?? ""}`.toLowerCase();
-  return /sql|xss|csrf|injection|secret|credential|token|auth|ssrf|path traversal|insecure|vulnerab/.test(
+function isSecurityFinding(finding: SonarCloudIssue): boolean {
+  const text = `${finding.key} ${finding.rule ?? ""} ${finding.message ?? ""} ${finding.type ?? ""}`.toLowerCase();
+  return /sql|xss|csrf|injection|secret|credential|token|auth|ssrf|path traversal|insecure|vulnerab|security/.test(
     text
   );
 }
 
-function deriveLabel(finding: SemgrepFinding): string {
-  const text = `${finding.check_id} ${finding.extra?.message ?? ""}`.toLowerCase();
+function deriveLabel(finding: SonarCloudIssue): string {
+  const text = `${finding.key} ${finding.rule ?? ""} ${finding.message ?? ""} ${finding.type ?? ""}`.toLowerCase();
 
   if (isSecurityFinding(finding)) {
     return "security";
@@ -275,27 +241,27 @@ function deriveLabel(finding: SemgrepFinding): string {
   if (/unused|dead code|duplicate|duplica/.test(text)) {
     return "best practice";
   }
-  if ((finding.extra?.severity || "").toUpperCase() === "ERROR") {
+  if ((finding.severity || "").toUpperCase() === "BLOCKER" || (finding.severity || "").toUpperCase() === "CRITICAL") {
     return "possible bug";
   }
 
   return "best practice";
 }
 
-function toComment(finding: SemgrepFinding): AIComment {
-  const severity = (finding.extra?.severity || "WARNING").toUpperCase();
-  const highlightedCode = (finding.extra?.lines || finding.extra?.message || finding.check_id)
+function toComment(finding: SonarCloudIssue): AIComment {
+  const severity = (finding.severity || "MAJOR").toUpperCase();
+  const highlightedCode = (finding.message || finding.rule || finding.key)
     .trim();
 
   return {
-    file: normalizePath(finding.path),
-    start_line: finding.start?.line ?? finding.end?.line ?? 1,
-    end_line: finding.end?.line ?? finding.start?.line ?? 1,
+    file: normalizePath(normalizeSonarComponent(finding.component)),
+    start_line: finding.textRange?.startLine ?? finding.line ?? 1,
+    end_line: finding.textRange?.endLine ?? finding.textRange?.startLine ?? finding.line ?? 1,
     highlighted_code: highlightedCode,
-    header: `Semgrep: ${finding.check_id}`,
-    content: finding.extra?.message?.trim() || `Achado identificado por ${finding.check_id}`,
+    header: `SonarCloud: ${finding.rule ?? finding.key}`,
+    content: finding.message?.trim() || `Achado identificado por ${finding.rule ?? finding.key}`,
     label: deriveLabel(finding),
-    critical: severity === "ERROR" || isSecurityFinding(finding),
+    critical: severity === "BLOCKER" || severity === "CRITICAL" || isSecurityFinding(finding),
   };
 }
 
@@ -338,11 +304,11 @@ function calculateMetrics(files: FileDiff[], comments: AIComment[]) {
 }
 
 /**
- * Main static analysis function powered by Semgrep.
+ * Main static analysis function powered by SonarCloud.
  */
-export function performStaticAnalysis(files: FileDiff[]): StaticAnalysisResult {
+export async function performStaticAnalysis(files: FileDiff[]): Promise<StaticAnalysisResult> {
   const changedRanges = buildChangedLineRanges(files);
-  const findings = runSemgrep(files).filter((finding) =>
+  const findings = (await runSonarCloud(files)).filter((finding) =>
     isFindingInChangedLines(finding, changedRanges)
   );
 

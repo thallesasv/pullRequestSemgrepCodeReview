@@ -90,7 +90,7 @@ describe('Messages', () => {
     expect(message).toContain('src/test2.ts');
     expect(message).toContain('Added new file');
     expect(message).toContain(OVERVIEW_MESSAGE_SIGNATURE);
-    expect(message).toContain('Semgrep Static PR Review');
+    expect(message).toContain('PR Review Static');
     expect(message).toContain(PAYLOAD_TAG_OPEN);
     expect(message).toContain(PAYLOAD_TAG_CLOSE);
     expect(message).toContain('"commits":["commit1","commit2"]');

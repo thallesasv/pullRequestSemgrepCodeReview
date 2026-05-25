@@ -5,6 +5,10 @@ export class Config {
   public styleGuideRules: string | undefined;
   public githubApiUrl: string;
   public githubServerUrl: string;
+  public sonarcloudToken: string | undefined;
+  public sonarcloudOrganization: string | undefined;
+  public sonarcloudProjectKey: string | undefined;
+  public sonarcloudUrl: string;
 
   constructor() {
     this.githubToken = process.env.GITHUB_TOKEN;
@@ -17,6 +21,15 @@ export class Config {
       process.env.GITHUB_API_URL || getInput('github_api_url') || 'https://api.github.com';
     this.githubServerUrl =
       process.env.GITHUB_SERVER_URL || getInput('github_server_url') || 'https://github.com';
+
+    this.sonarcloudToken =
+      process.env.SONARCLOUD_TOKEN || getInput('sonarcloud_token') || undefined;
+    this.sonarcloudOrganization =
+      process.env.SONARCLOUD_ORGANIZATION || getInput('sonarcloud_organization') || undefined;
+    this.sonarcloudProjectKey =
+      process.env.SONARCLOUD_PROJECT_KEY || getInput('sonarcloud_project_key') || undefined;
+    this.sonarcloudUrl =
+      process.env.SONARCLOUD_URL || getInput('sonarcloud_url') || 'https://sonarcloud.io';
 
     if (!process.env.DEBUG) {
       return;
@@ -66,6 +79,10 @@ export default process.env.NODE_ENV === "test"
       styleGuideRules: "",
       githubApiUrl: "https://api.github.com",
       githubServerUrl: "https://github.com",
+      sonarcloudToken: undefined,
+      sonarcloudOrganization: undefined,
+      sonarcloudProjectKey: undefined,
+      sonarcloudUrl: "https://sonarcloud.io",
       loadInputs: jest.fn(),
     }
   : configInstance!;

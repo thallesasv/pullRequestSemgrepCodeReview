@@ -1,12 +1,34 @@
 /// <reference types="jest" />
 
-jest.mock('child_process', () => ({
-  execFileSync: jest.fn(),
+jest.mock('axios', () => ({
+  __esModule: true,
+  default: {
+    get: jest.fn(),
+  },
 }));
 
 jest.mock('fs', () => ({
-  mkdtempSync: jest.fn(() => '/tmp/semgrep-review-test'),
-  readFileSync: jest.fn(),
+  readFileSync: jest.fn((filePath: string) => {
+    if (filePath.includes('event.json')) {
+      return JSON.stringify({ pull_request: { number: 123 } });
+    }
+    return '';
+  }),
+}));
+
+jest.mock('../config', () => ({
+  __esModule: true,
+  default: {
+    githubToken: 'mock-token',
+    styleGuideRules: '',
+    githubApiUrl: 'https://api.github.com',
+    githubServerUrl: 'https://github.com',
+    sonarcloudToken: 'sonar-token',
+    sonarcloudOrganization: 'my-org',
+    sonarcloudProjectKey: 'my-project',
+    sonarcloudUrl: 'https://sonarcloud.io',
+    loadInputs: jest.fn(),
+  },
 }));
 
 jest.mock('@actions/core', () => ({
@@ -14,63 +36,55 @@ jest.mock('@actions/core', () => ({
   warning: jest.fn(),
 }));
 
-import { execFileSync } from 'child_process';
+import axios from 'axios';
 import { info, warning } from '@actions/core';
-import { readFileSync } from 'fs';
 import { performStaticAnalysis } from '../static-analysis';
 import { FileDiff } from '../diff';
 
-const execFileSyncMock = execFileSync as jest.Mock;
+const axiosGetMock = (axios as { get: jest.Mock }).get;
 const infoMock = info as jest.Mock;
 const warningMock = warning as jest.Mock;
-const readFileSyncMock = readFileSync as jest.Mock;
 
-describe('Semgrep static analysis', () => {
+describe('SonarCloud static analysis', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.GITHUB_EVENT_PATH = 'C:/temp/event.json';
   });
 
-  test('converts Semgrep findings into review comments and metrics', () => {
-    const semgrepOutput = {
-      results: [
-        {
-          check_id: 'typescript.security.detect-child-process',
-          path: 'src/app.ts',
-          start: { line: 3 },
-          end: { line: 3 },
-          extra: {
+  test('converts SonarCloud issues into review comments and metrics', async () => {
+    axiosGetMock.mockResolvedValue({
+      data: {
+        issues: [
+          {
+            key: 'ISSUE-1',
+            rule: 'typescript:S4721',
+            component: 'my-project:src/app.ts',
+            line: 3,
             message: 'Possible command injection sink detected',
-            severity: 'ERROR',
-            lines: 'child_process.exec(userInput);',
+            severity: 'CRITICAL',
+            type: 'VULNERABILITY',
           },
-        },
-        {
-          check_id: 'typescript.best-practice.console-log',
-          path: 'src/app.ts',
-          start: { line: 20 },
-          end: { line: 20 },
-          extra: {
+          {
+            key: 'ISSUE-2',
+            rule: 'typescript:S106',
+            component: 'my-project:src/app.ts',
+            line: 20,
             message: 'Avoid console.log in production code',
-            severity: 'WARNING',
-            lines: 'console.log(result);',
+            severity: 'MAJOR',
+            type: 'CODE_SMELL',
           },
-        },
-        {
-          check_id: 'typescript.security.unrelated',
-          path: 'src/app.ts',
-          start: { line: 80 },
-          end: { line: 80 },
-          extra: {
+          {
+            key: 'ISSUE-3',
+            rule: 'typescript:S9999',
+            component: 'my-project:src/app.ts',
+            line: 80,
             message: 'This finding is outside the changed lines',
-            severity: 'ERROR',
-            lines: 'dangerousCall();',
+            severity: 'CRITICAL',
+            type: 'VULNERABILITY',
           },
-        },
-      ],
-    };
-
-    execFileSyncMock.mockReturnValue('');
-    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
+        ],
+      },
+    });
 
     const files: FileDiff[] = [
       {
@@ -83,12 +97,13 @@ describe('Semgrep static analysis', () => {
       },
     ];
 
-    const result = performStaticAnalysis(files);
+    const result = await performStaticAnalysis(files);
 
-    expect(execFileSyncMock).toHaveBeenCalledWith(
-      'semgrep',
-      expect.arrayContaining(['scan', '--config', 'p/default', '--json-output']),
-      expect.objectContaining({ cwd: expect.any(String) })
+    expect(axiosGetMock).toHaveBeenCalledWith(
+      expect.stringContaining('/api/issues/search'),
+      expect.objectContaining({
+        auth: { username: 'sonar-token', password: '' },
+      })
     );
     expect(result.issues).toHaveLength(2);
     expect(result.issues[0]).toMatchObject({
@@ -107,41 +122,29 @@ describe('Semgrep static analysis', () => {
     });
     expect(result.metrics.hasRelevantTests).toBe(false);
     expect(result.metrics.securityConcerns).toContain('Possible command injection sink detected');
-    expect(infoMock).toHaveBeenCalledWith('Running Semgrep with 1 target(s) using config p/default');
-    expect(infoMock).toHaveBeenCalledWith('Semgrep targets: src/app.ts');
-    expect(infoMock).toHaveBeenCalledWith('Semgrep scan completed successfully with 3 finding(s)');
+    expect(infoMock).toHaveBeenCalledWith('Running SonarCloud with 1 target(s) for my-project in organization my-org');
+    expect(infoMock).toHaveBeenCalledWith('SonarCloud scan completed successfully with 3 finding(s)');
   });
 
-  test('parses Semgrep JSON even when the process exits non-zero', () => {
-    const semgrepOutput = {
-      results: [
-        {
-          check_id: 'typescript.security.detect-child-process',
-          path: 'src/app.ts',
-          start: { line: 3 },
-          end: { line: 3 },
-          extra: {
-            message: 'Possible command injection sink detected',
-            severity: 'ERROR',
-            lines: 'child_process.exec(userInput);',
-          },
+  test('parses SonarCloud JSON when the request fails but the response body is recoverable', async () => {
+    axiosGetMock.mockRejectedValue({
+      message: 'Request failed',
+      response: {
+        data: {
+          issues: [
+            {
+              key: 'ISSUE-1',
+              rule: 'typescript:S4721',
+              component: 'my-project:src/app.ts',
+              line: 3,
+              message: 'Possible command injection sink detected',
+              severity: 'CRITICAL',
+              type: 'VULNERABILITY',
+            },
+          ],
         },
-      ],
-    };
-
-    const error = new Error('Command failed: semgrep scan') as Error & {
-      code?: number;
-      stdout?: string;
-      stderr?: string;
-    };
-    error.code = 2;
-    error.stdout = JSON.stringify(semgrepOutput);
-    error.stderr = 'warning: partial scan output';
-
-    execFileSyncMock.mockImplementation(() => {
-      throw error;
+      },
     });
-    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
 
     const files: FileDiff[] = [
       {
@@ -153,7 +156,7 @@ describe('Semgrep static analysis', () => {
       },
     ];
 
-    const result = performStaticAnalysis(files);
+    const result = await performStaticAnalysis(files);
 
     expect(result.issues).toHaveLength(1);
     expect(result.issues[0]).toMatchObject({
@@ -163,18 +166,11 @@ describe('Semgrep static analysis', () => {
       label: 'security',
       critical: true,
     });
-    expect(infoMock).toHaveBeenCalledWith(
-      'Semgrep returned parseable JSON output file with 1 finding(s)'
-    );
+    expect(infoMock).toHaveBeenCalledWith('SonarCloud returned parseable JSON with 1 finding(s)');
   });
 
-  test('ignores hidden files and directories when building Semgrep targets', () => {
-    const semgrepOutput = {
-      results: [] as any[],
-    };
-
-    execFileSyncMock.mockReturnValue('');
-    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
+  test('skips hidden files and directories before querying SonarCloud', async () => {
+    axiosGetMock.mockResolvedValue({ data: { issues: [] } });
 
     const files: FileDiff[] = [
       {
@@ -193,19 +189,14 @@ describe('Semgrep static analysis', () => {
       },
     ];
 
-    const result = performStaticAnalysis(files);
+    const result = await performStaticAnalysis(files);
 
-    // Should only pass the visible src/app.ts to Semgrep
-    expect(infoMock).toHaveBeenCalledWith('Running Semgrep with 1 target(s) using config p/default');
-    expect(infoMock).toHaveBeenCalledWith('Semgrep targets: src/app.ts');
+    expect(infoMock).toHaveBeenCalledWith('Running SonarCloud with 1 target(s) for my-project in organization my-org');
     expect(result.issues).toHaveLength(0);
   });
 
-  test('ignores generated and third-party directories and non-important files', () => {
-    const semgrepOutput = { results: [] as any[] };
-
-    execFileSyncMock.mockReturnValue('');
-    readFileSyncMock.mockReturnValue(JSON.stringify(semgrepOutput));
+  test('skips generated and third-party directories and non-important files', async () => {
+    axiosGetMock.mockResolvedValue({ data: { issues: [] } });
 
     const files: FileDiff[] = [
       { filename: 'node_modules/lib/index.js', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+a' }] },
@@ -215,10 +206,27 @@ describe('Semgrep static analysis', () => {
       { filename: 'src/app.js', status: 'modified', hunks: [{ startLine: 1, endLine: 2, diff: '+e' }] },
     ];
 
-    const result = performStaticAnalysis(files);
+    const result = await performStaticAnalysis(files);
 
-    expect(infoMock).toHaveBeenCalledWith('Running Semgrep with 1 target(s) using config p/default');
-    expect(infoMock).toHaveBeenCalledWith('Semgrep targets: src/app.js');
+    expect(infoMock).toHaveBeenCalledWith('Running SonarCloud with 1 target(s) for my-project in organization my-org');
     expect(result.issues).toHaveLength(0);
+  });
+
+  test('returns no findings when SonarCloud credentials are missing', async () => {
+    axiosGetMock.mockResolvedValue({ data: { issues: [] } });
+    process.env.GITHUB_EVENT_PATH = '';
+
+    const result = await performStaticAnalysis([
+      {
+        filename: 'src/app.ts',
+        status: 'modified',
+        hunks: [{ startLine: 1, endLine: 2, diff: '+a' }],
+      },
+    ]);
+
+    expect(result.issues).toHaveLength(0);
+    expect(warningMock).toHaveBeenCalledWith(
+      'SonarCloud analysis skipped: missing SONARCLOUD_TOKEN, SONARCLOUD_ORGANIZATION, SONARCLOUD_PROJECT_KEY or pull request number'
+    );
   });
 });
